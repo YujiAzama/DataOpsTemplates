@@ -1,8 +1,8 @@
-# Bastion の作成・削除が自動化された DataOps 環境を展開するテンプレート
+# DataOps 環境を展開するテンプレート
 
 ## 概要
 
-この ARM テンプレートは、Azure Bastion のコストを削減するために Azure Automation を使用して Azure Bastion ホストの生成、及び、削除が自動化された DataOps 環境を展開できます。
+この ARM テンプレートは、Microsoft Azure 上に DataOps 環境を展開するものです。
 
 ## テンプレートの構成要素
 

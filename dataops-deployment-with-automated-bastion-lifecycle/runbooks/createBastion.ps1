@@ -23,7 +23,7 @@ $AzureContext = Set-AzContext -SubscriptionName $AzureContext.Subscription `
     -DefaultProfile $AzureContext
 
 # Download template.json
-Invoke-WebRequest "https://raw.githubusercontent.com/YujiAzama/ARMTest/main/bastion/template.json" -OutFile "C:\Temp\template.json"
+Invoke-WebRequest "https://raw.githubusercontent.com/YujiAzama/DataOpsTemplates/main/dataops-deployment-with-automated-bastion-lifecycle/bastion/template.json" -OutFile "C:\Temp\template.json"
 
 # Deploy the bastion
 New-AzResourceGroupDeployment `

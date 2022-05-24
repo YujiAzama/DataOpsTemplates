@@ -12,6 +12,8 @@
 - Azure CosmosDB
 - Azure Bastion
 
+![image](https://user-images.githubusercontent.com/8349954/170065753-a30fe769-e0c2-4aea-aacf-133eecdbbf3b.png)
+
 ## 使用方法
 
 ### 1. テンプレートのダウンロード

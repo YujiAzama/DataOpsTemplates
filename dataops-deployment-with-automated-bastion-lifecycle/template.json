@@ -1,0 +1,1034 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.6.18.56646",
+      "templateHash": "548937993914673571"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "リージョン。"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "dataops-user",
+      "metadata": {
+        "description": "仮想マシンの管理者ユーザー名。"
+      }
+    },
+    "adminPassword": {
+      "type": "secureString",
+      "minLength": 12,
+      "metadata": {
+        "description": "仮想マシンのパスワード。(Ex. P@ssw0rd1234-)"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "defaultValue": "dataops-vnet",
+      "metadata": {
+        "description": "仮想ネットワーク名。"
+      }
+    },
+    "vmName": {
+      "type": "string",
+      "defaultValue": "dataops-vm",
+      "metadata": {
+        "description": "仮想マシン名。"
+      }
+    },
+    "vmNetworkInterfaceName": {
+      "type": "string",
+      "defaultValue": "dataops-vm-interface",
+      "metadata": {
+        "description": "仮想マシンのネットワークインターフェース名。"
+      }
+    },
+    "networkSecurityGroupName": {
+      "type": "string",
+      "defaultValue": "dataops-vm-sg",
+      "metadata": {
+        "description": "仮想マシンのネットワークセキュリティグループ名。"
+      }
+    },
+    "cosmosDBAccountName": {
+      "type": "string",
+      "defaultValue": "[format('dataops-cosmos-{0}', uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Cosmos DBアカウント名。"
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "defaultValue": "opendata",
+      "metadata": {
+        "description": "データベース名。"
+      }
+    },
+    "cosmosDBPrivateEndpointName": {
+      "type": "string",
+      "defaultValue": "dataops-cosmos-private-endpoint",
+      "metadata": {
+        "description": "CosmosDBのプライベートエンドポイント名。"
+      }
+    },
+    "cosmosDBPrivateDnsZoneName": {
+      "type": "string",
+      "defaultValue": "privatelink.documents.azure.com",
+      "metadata": {
+        "description": "CosmosDBのプライベートDNSゾーン名。"
+      }
+    },
+    "cosmosDBNetworkInterfaceName": {
+      "type": "string",
+      "defaultValue": "dataops-cosmos-interface",
+      "metadata": {
+        "description": "CosmosDBのネットワークインターフェース名。"
+      }
+    },
+    "userAssignedIdentitiesName": {
+      "type": "string",
+      "defaultValue": "user-assigned-id-for-automation",
+      "metadata": {
+        "description": "Runbook内からAzureリソースを操作する権限を与えるためのマネージドID名。"
+      }
+    },
+    "automationAccountsName": {
+      "type": "string",
+      "defaultValue": "dataops-bastion-automation",
+      "metadata": {
+        "description": "Automationアカウント名。"
+      }
+    },
+    "createTime": {
+      "type": "string",
+      "defaultValue": "2022-05-25T07:00+09:00",
+      "metadata": {
+        "description": "Bastionを起動する時間。(現在時刻より5分後以降を指定してください。)"
+      }
+    },
+    "deleteTime": {
+      "type": "string",
+      "defaultValue": "2022-05-25T23:00+09:00",
+      "metadata": {
+        "description": "Bastionを削除する時間。(現在時刻より5分後以降を指定してください。)"
+      }
+    },
+    "roleDefinitionIds": {
+      "type": "array",
+      "defaultValue": [
+        "b24988ac-6180-42a0-ab88-20f7382dd24c"
+      ],
+      "metadata": {
+        "description": "The IDs of the role definitions to assign to the managed identity. Each role assignment is created at the resource group scope. Role definition IDs are GUIDs. To find the GUID for built-in Azure role definitions, see https://docs.microsoft.com/azure/role-based-access-control/built-in-roles. You can also use IDs of custom role definitions."
+      }
+    }
+  },
+  "variables": {
+    "copy": [
+      {
+        "name": "roleAssignmentsToCreate",
+        "count": "[length(parameters('roleDefinitionIds'))]",
+        "input": {
+          "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName')), deployment().name, parameters('roleDefinitionIds')[copyIndex('roleAssignmentsToCreate')])]",
+          "roleDefinitionId": "[parameters('roleDefinitionIds')[copyIndex('roleAssignmentsToCreate')]]"
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-07-01",
+      "name": "[parameters('vmName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B2ms"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2022-datacenter-azure-edition",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[format('{0}_OsDisk_1_34bf20d57acd4a7386a9d772306e7814', parameters('vmName'))]",
+            "createOption": "FromImage",
+            "caching": "ReadWrite",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            },
+            "deleteOption": "Delete",
+            "diskSizeGB": 127
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": true,
+            "patchSettings": {
+              "patchMode": "AutomaticByOS",
+              "assessmentMode": "ImageDefault",
+              "enableHotpatching": false
+            }
+          },
+          "secrets": [],
+          "allowExtensionOperations": true
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('vmNetworkInterfaceName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', parameters('vmNetworkInterfaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2021-03-01",
+      "name": "[format('{0}/{1}', parameters('vmName'), 'vm-setup-script')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.10",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "timestamp": 123456789
+        },
+        "protectedSettings": {
+          "fileUris": [
+            "https://raw.githubusercontent.com/YujiAzama/ARMTest/main/installPowerPlatformPackages.ps1"
+          ],
+          "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File installPowerPlatformPackages.ps1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2020-11-01",
+      "name": "[parameters('networkSecurityGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "org": "ool"
+      },
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowBastionInbound",
+            "properties": {
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "sourceAddressPrefix": "10.0.255.0/27",
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Allow",
+              "priority": 1001,
+              "direction": "Inbound",
+              "sourcePortRanges": [],
+              "destinationPortRanges": [
+                "22",
+                "3389"
+              ],
+              "sourceAddressPrefixes": [],
+              "destinationAddressPrefixes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2020-11-01",
+      "name": "[parameters('virtualNetworkName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "VMSubnet",
+            "properties": {
+              "addressPrefix": "10.0.1.0/28",
+              "serviceEndpoints": [
+                {
+                  "service": "Microsoft.AzureCosmosDB",
+                  "locations": [
+                    "*"
+                  ]
+                }
+              ],
+              "delegations": [],
+              "privateEndpointNetworkPolicies": "Disabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ],
+        "virtualNetworkPeerings": [],
+        "enableDdosProtection": false
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+      "apiVersion": "2020-11-01",
+      "name": "[format('{0}/{1}', parameters('networkSecurityGroupName'), 'AllowBastionInbound')]",
+      "properties": {
+        "protocol": "*",
+        "sourcePortRange": "*",
+        "sourceAddressPrefix": "10.0.255.0/27",
+        "destinationAddressPrefix": "VirtualNetwork",
+        "access": "Allow",
+        "priority": 1001,
+        "direction": "Inbound",
+        "sourcePortRanges": [],
+        "destinationPortRanges": [
+          "22",
+          "3389"
+        ],
+        "sourceAddressPrefixes": [],
+        "destinationAddressPrefixes": []
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2020-11-01",
+      "name": "[format('{0}/{1}', parameters('virtualNetworkName'), 'VMSubnet')]",
+      "properties": {
+        "addressPrefix": "10.0.1.0/28",
+        "serviceEndpoints": [
+          {
+            "service": "Microsoft.AzureCosmosDB",
+            "locations": [
+              "*"
+            ]
+          }
+        ],
+        "delegations": [],
+        "privateEndpointNetworkPolicies": "Disabled",
+        "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-11-01",
+      "name": "[parameters('vmNetworkInterfaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "10.0.1.5",
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'VMSubnet')]"
+              },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'VMSubnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[toLower(parameters('cosmosDBAccountName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "locations": [
+          {
+            "locationName": "[parameters('location')]"
+          }
+        ],
+        "createMode": "Default"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'))]",
+      "properties": {
+        "resource": {
+          "id": "[parameters('databaseName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}/{2}', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'benoki')]",
+      "properties": {
+        "resource": {
+          "id": "benoki",
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/\"_etag\"/?"
+              }
+            ]
+          },
+          "partitionKey": {
+            "paths": [
+              "/riverName"
+            ],
+            "kind": "Hash"
+          },
+          "uniqueKeyPolicy": {
+            "uniqueKeys": []
+          },
+          "conflictResolutionPolicy": {
+            "mode": "LastWriterWins",
+            "conflictResolutionPath": "/_ts"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}/{2}', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'hukuti')]",
+      "properties": {
+        "resource": {
+          "id": "hukuti",
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/\"_etag\"/?"
+              }
+            ]
+          },
+          "partitionKey": {
+            "paths": [
+              "/riverName"
+            ],
+            "kind": "Hash"
+          },
+          "uniqueKeyPolicy": {
+            "uniqueKeys": []
+          },
+          "conflictResolutionPolicy": {
+            "mode": "LastWriterWins",
+            "conflictResolutionPath": "/_ts"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/throughputSettings",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}/{2}/{3}', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'benoki', 'default')]",
+      "properties": {
+        "resource": {
+          "throughput": 400
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'benoki')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/throughputSettings",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}/{2}/{3}', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'hukuti', 'default')]",
+      "properties": {
+        "resource": {
+          "throughput": 400
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', toLower(parameters('cosmosDBAccountName')), parameters('databaseName'), 'hukuti')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}', toLower(parameters('cosmosDBAccountName')), '00000000-0000-0000-0000-000000000001')]",
+      "properties": {
+        "roleName": "Cosmos DB Built-in Data Reader",
+        "type": "BuiltInRole",
+        "assignableScopes": [
+          "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]"
+        ],
+        "permissions": [
+          {
+            "dataActions": [
+              "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/executeQuery",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/readChangeFeed",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/read"
+            ],
+            "notDataActions": []
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}', toLower(parameters('cosmosDBAccountName')), '00000000-0000-0000-0000-000000000002')]",
+      "properties": {
+        "roleName": "Cosmos DB Built-in Data Contributor",
+        "type": "BuiltInRole",
+        "assignableScopes": [
+          "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]"
+        ],
+        "permissions": [
+          {
+            "dataActions": [
+              "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*"
+            ],
+            "notDataActions": []
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2020-11-01",
+      "name": "[parameters('cosmosDBPrivateEndpointName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "privateLinkServiceConnections": [
+          {
+            "name": "[parameters('cosmosDBPrivateEndpointName')]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]",
+              "groupIds": [
+                "Sql"
+              ],
+              "privateLinkServiceConnectionState": {
+                "status": "Approved",
+                "actionsRequired": "None"
+              }
+            }
+          }
+        ],
+        "manualPrivateLinkServiceConnections": [],
+        "subnet": {
+          "id": "[format('{0}/subnets/VMSubnet', resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName')))]"
+        },
+        "customDnsConfigs": [
+          {
+            "fqdn": "ool-dataops.documents.azure.com",
+            "ipAddresses": [
+              "10.0.1.7"
+            ]
+          },
+          {
+            "fqdn": "ool-dataops-japaneast.documents.azure.com",
+            "ipAddresses": [
+              "10.0.1.8"
+            ]
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('cosmosDBAccountName')))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-11-01",
+      "name": "[parameters('cosmosDBNetworkInterfaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "privateEndpointIpConfig.9ab0d39c-f07d-4f95-9c37-05d0c6dccfe8",
+            "properties": {
+              "privateIPAddress": "10.0.1.7",
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'VMSubnet')]"
+              },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          },
+          {
+            "name": "privateEndpointIpConfig.222ff169-5ba0-464b-bff6-2e883ec5f0c9",
+            "properties": {
+              "privateIPAddress": "10.0.1.8",
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'VMSubnet')]"
+              },
+              "primary": false,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'VMSubnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2018-09-01",
+      "name": "[parameters('cosmosDBPrivateDnsZoneName')]",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/A",
+      "apiVersion": "2018-09-01",
+      "name": "[format('{0}/{1}', parameters('cosmosDBPrivateDnsZoneName'), 'ool-dataops')]",
+      "properties": {
+        "ttl": 3600,
+        "aRecords": [
+          {
+            "ipv4Address": "10.0.1.7"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('cosmosDBPrivateDnsZoneName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/A",
+      "apiVersion": "2018-09-01",
+      "name": "[format('{0}/{1}', parameters('cosmosDBPrivateDnsZoneName'), 'ool-dataops-japaneast')]",
+      "properties": {
+        "ttl": 3600,
+        "aRecords": [
+          {
+            "ipv4Address": "10.0.1.8"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('cosmosDBPrivateDnsZoneName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/SOA",
+      "apiVersion": "2018-09-01",
+      "name": "[format('{0}/{1}', parameters('cosmosDBPrivateDnsZoneName'), '@')]",
+      "properties": {
+        "ttl": 3600,
+        "soaRecord": {
+          "email": "azureprivatedns-host.microsoft.com",
+          "expireTime": 2419200,
+          "host": "azureprivatedns.net",
+          "minimumTtl": 10,
+          "refreshTime": 3600,
+          "retryTime": 300,
+          "serialNumber": 1
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('cosmosDBPrivateDnsZoneName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2018-09-01",
+      "name": "[format('{0}/{1}', parameters('cosmosDBPrivateDnsZoneName'), 'vmpruztkk5r5d')]",
+      "location": "global",
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('cosmosDBPrivateDnsZoneName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "[parameters('userAssignedIdentitiesName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "copy": {
+        "name": "roleAssignment",
+        "count": "[length(variables('roleAssignmentsToCreate'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-10-01-preview",
+      "scope": "[format('Microsoft.Automation/automationAccounts/{0}', parameters('automationAccountsName'))]",
+      "name": "[variables('roleAssignmentsToCreate')[copyIndex()].name]",
+      "properties": {
+        "description": "共同作成者",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))).principalId]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleAssignmentsToCreate')[copyIndex()].roleDefinitionId)]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2021-06-22",
+      "name": "[parameters('automationAccountsName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned, UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName')))]": {}
+        }
+      },
+      "properties": {
+        "publicNetworkAccess": false,
+        "disableLocalAuth": false,
+        "sku": {
+          "name": "Basic"
+        },
+        "encryption": {
+          "keySource": "Microsoft.Automation",
+          "identity": {}
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/connectionTypes",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), guid('Azure', resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))))]",
+      "properties": {
+        "isGlobal": false,
+        "fieldDefinitions": {
+          "AutomationCertificateName": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "SubscriptionID": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/connectionTypes",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), guid('AzureClassicCertificate', resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))))]",
+      "properties": {
+        "isGlobal": false,
+        "fieldDefinitions": {
+          "SubscriptionName": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "SubscriptionId": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "CertificateAssetName": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/connectionTypes",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), guid('AzureServicePrincipal', resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))))]",
+      "properties": {
+        "isGlobal": false,
+        "fieldDefinitions": {
+          "ApplicationId": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "TenantId": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "CertificateThumbprint": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          },
+          "SubscriptionId": {
+            "isEncrypted": false,
+            "isOptional": false,
+            "type": "System.String"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/modules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'Az.Accounts')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://psg-prod-eastus.azureedge.net/packages/az.accounts.2.7.6.nupkg"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/modules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'Az.ManagedServiceIdentity')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://psg-prod-eastus.azureedge.net/packages/az.managedserviceidentity.0.8.0.nupkg"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/modules', parameters('automationAccountsName'), 'Az.Accounts')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/modules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'Az.ManagedServices')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://psg-prod-eastus.azureedge.net/packages/az.managedservices.3.0.0.nupkg"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/modules', parameters('automationAccountsName'), 'Az.Accounts')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'BastionCreate')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "runbookType": "PowerShell",
+        "logVerbose": true,
+        "logProgress": true,
+        "logActivityTrace": 0,
+        "publishContentLink": {
+          "uri": "https://raw.githubusercontent.com/YujiAzama/ARMTest/main/bastion/automation/runbook/createBastion.ps1",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'BastionDelete')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "runbookType": "PowerShell",
+        "logVerbose": false,
+        "logProgress": false,
+        "logActivityTrace": 0,
+        "publishContentLink": {
+          "uri": "https://raw.githubusercontent.com/YujiAzama/ARMTest/main/bastion/automation/runbook/deleteBastion.ps1",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'BastionCreate')]",
+      "properties": {
+        "startTime": "[parameters('createTime')]",
+        "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+        "interval": 1,
+        "frequency": "Week",
+        "timeZone": "Asia/Tokyo",
+        "advancedSchedule": {
+          "weekDays": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday"
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), 'BastionDelete')]",
+      "properties": {
+        "startTime": "[parameters('deleteTime')]",
+        "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+        "interval": 1,
+        "frequency": "Week",
+        "timeZone": "Asia/Tokyo",
+        "advancedSchedule": {
+          "weekDays": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday"
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), guid('bastionCreate', resourceGroup().id, deployment().name))]",
+      "properties": {
+        "runbook": {
+          "name": "BastionCreate"
+        },
+        "schedule": {
+          "name": "BastionCreate"
+        },
+        "parameters": {
+          "resourceGroup": "[resourceGroup().name]",
+          "userAssignedManagedIdentity": "[parameters('userAssignedIdentitiesName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountsName'), 'BastionCreate')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountsName'), 'BastionCreate')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentitiesName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2020-01-13-preview",
+      "name": "[format('{0}/{1}', parameters('automationAccountsName'), guid('bastionDelete', resourceGroup().id, deployment().name))]",
+      "properties": {
+        "runbook": {
+          "name": "BastionDelete"
+        },
+        "schedule": {
+          "name": "BastionDelete"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountsName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountsName'), 'BastionDelete')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountsName'), 'BastionDelete')]"
+      ]
+    }
+  ]
+}

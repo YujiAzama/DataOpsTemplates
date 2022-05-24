@@ -13,6 +13,8 @@
 - Azure Automation
   - Azure Bastion
 
+![image](https://user-images.githubusercontent.com/8349954/170066577-6811aef9-60ef-4872-bd39-6ca7b4b49001.png)
+
 ## 使用方法
 
 ### 1. テンプレートのダウンロード

@@ -107,7 +107,7 @@ resource vmSetupScript 'Microsoft.Compute/virtualMachines/extensions@2021-03-01'
     }
     protectedSettings: {
       fileUris: [
-        'https://raw.githubusercontent.com/YujiAzama/ARMTest/main/installPowerPlatformPackages.ps1'
+        'https://raw.githubusercontent.com/YujiAzama/DataOpsTemplates/main/scripts/installPowerPlatformPackages.ps1'
       ]
       commandToExecute: 'powershell.exe -ExecutionPolicy Unrestricted -File installPowerPlatformPackages.ps1'
     }

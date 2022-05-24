@@ -10,8 +10,7 @@
   - Power Automate Desktop
   - Power BI Desktop
 - Azure CosmosDB
-- Azure Automation
-  - Azure Bastion
+- Azure Bastion
 
 ## 使用方法
 

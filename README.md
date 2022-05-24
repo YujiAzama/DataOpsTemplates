@@ -1,15 +1,30 @@
-# ARMTest
+# DataOps テンプレート
 
-Windows Server 2022 の仮想マシンとCosmosDBを作成すると同時に、仮想マシンへのPower Automate 及び、 Power BI のインストールを自動化した ARM テンプレート。
+## 概要
 
-- template.bicep
-  - テンプレートファイル
-- template.json
-  - template.bicep から生成した JSON 形式のテンプレートファイル
-- parameters.json
-  - パラメーターファイル
-- installPowerPlatformPackages.ps1
-  - Custom Script Extension によって実行される PowerShell スクリプトファイル 
+このリポジトリは、[DataOps](https://www.gartner.com/en/information-technology/glossary/dataops) の環境を簡単に構築するための ARM テンプレートを提供します。
+
+## テンプレートの種類
+
+### - [DataOps deployment](https://github.com/YujiAzama/DataOpsTemplates/tree/main/dataops-deployment)
+
+DataOps deployment は、DataOps の環境に必要な以下のリソースを自動的に展開します。
+
+- Virtual Machine (Windows Server 2022)
+- Bastion
+- CosmosDB
+
+展開された Windows Server には、Power Automate Desktop と Power BI Desktop が自動的にインストールされます。
+
+### - [DataOps deployment with automated bastion lifecycle](https://github.com/YujiAzama/DataOpsTemplates/tree/main/dataops-deployment-with-automated-bastion-lifecycle)
+
+DataOps deployment with automated bastion lifecycle は、 DataOps deployment の構成に加えて、Azure Bastion を指定した時間に自動的に作成・削除するための Azure Automation の定義が含まれます。
+
+- Virtual Machine (Windows Server 2022)
+- Bastion
+- CosmosDB
+- Automation
+
 
 ## VS Code の Bicep 拡張機能によるテンプレートビジュアライズ
 ![image](https://user-images.githubusercontent.com/8349954/169265738-87fc7391-e664-40bd-bd7a-175b370eed89.png)

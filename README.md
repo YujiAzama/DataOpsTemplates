@@ -24,7 +24,3 @@ DataOps deployment with automated bastion lifecycle は、 DataOps deployment �
 - Bastion
 - CosmosDB
 - Automation
-
-
-## VS Code の Bicep 拡張機能によるテンプレートビジュアライズ
-![image](https://user-images.githubusercontent.com/8349954/169265738-87fc7391-e664-40bd-bd7a-175b370eed89.png)

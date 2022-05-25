@@ -1,0 +1,107 @@
+DateTime.GetCurrentDateTime.Current DateTimeFormat: DateTime.DateTimeFormat.DateAndTime Offset: $'''Asia/Tokyo''' CurrentDateTime=> CurrentDateTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyyMMdd''' Result=> FormattedDateTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''HH:00''' Result=> CheckTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyyMMddHH00''' Result=> FormattedDateTime2
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyy-MM-ddTHH:00:00+09:00''' Result=> FormattedDateTime3
+WebAutomation.LaunchChrome.LaunchChrome Url: $'''http://www1.river.go.jp/cgi-bin/SrchSiteSuiData2.exe?SUIKEI=90334000&BGNDATE=%FormattedDateTime%&ENDDATE=%FormattedDateTime%&ID=301010190001010:0201;''' WindowState: WebAutomation.BrowserWindowState.Normal ClearCache: False ClearCookies: False Timeout: 60 BrowserInstance=> Browser
+WebAutomation.ExtractData.ExtractHtmlTable BrowserInstance: Browser Control: $'''html > body > center > table > tbody > tr:eq(2) > td > table > tbody > tr > td:eq(0) > table''' ExtractionParameters: {[$'''Value #1''', $'''Value #2''', $'''Value #3'''], [$'''''', $'''''', $''''''] } PostProcessData: False TimeoutInSeconds: 60 ExtractedData=> DataFromWebPage
+WebAutomation.CloseWebBrowser BrowserInstance: Browser
+LOOP FOREACH CurrentItem IN DataFromWebPage
+    SET Time TO CurrentItem[1]
+    IF Time = CheckTime THEN
+        SET waterLevel TO CurrentItem[2]
+        EXIT LOOP
+    END
+END
+Scripting.RunDOSCommand.RunDOSCommand DOSCommandOrApplication: $'''C:\\OOL\\PowerAutomate\\benoki.bat''' WorkingDirectory: $'''C:\\Program Files\\nodejs''' StandardOutput=> CommandOutput StandardError=> CommandErrorOutput ExitCode=> CommandExitCode
+SET NewVar TO CommandOutput
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''type=''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''type''' StartingPosition: 102 IgnoreCase: False OccurrencePosition=> Position2
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position NumberOfChars: Position2 - Position - 1 Subtext=> Subtext
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''token.js''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position3
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''GMT''' StartingPosition: Position3 IgnoreCase: False OccurrencePosition=> Position4
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position3 + 11 NumberOfChars: Position4 - Position3 - 8 Subtext=> Subtext2
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position2 NumberOfChars: NewVar.Length - Position2 - 1 Subtext=> Subtext3
+Scripting.RunPythonScript PythonCode: $'''import time
+
+dt = time.time()
+
+print(int(dt))''' ScriptOutput=> PythonScriptOutput ScriptError=> ScriptError
+Text.GetSubtext.GetSubtext Text: PythonScriptOutput CharacterPosition: 0 NumberOfChars: 10 Subtext=> Subtext4
+Web.InvokeWebService.InvokeWebService Url: $'''https://ool-dataops.documents.azure.com/dbs/OkinawaRiverDB/colls/benoki/docs''' Method: Web.Method.Post Accept: $'''application/json''' ContentType: $'''application/json''' CustomHeaders: $'''Accept:
+x-ms-version:2018-12-31
+x-ms-date: %Subtext2%
+authorization:%Subtext%
+x-ms-documentdb-is-upsert: True
+x-ms-documentdb-partitionkey: [ \"shimobenokigawa\" ]''' RequestBody: $'''{
+    \"id\": \"benoki0800\",
+    \"type\": \"river\",
+    \"observationPointName\": \"下辺野喜\",
+    \"riverName\": \"shimobenokigawa\",
+    \"address\": \"沖縄県国頭郡国頭村字辺野喜川河川敷\",
+    \"location\": {
+        \"type\": \"Point\",
+        \"coordinates\": [
+            26.4746,
+            128.1422
+        ]
+    },
+    \"phone\": \"0980-53-2442\",
+    \"rainfall\": null,
+    \"waterLevel\": %waterLevel%,
+    \"basinArea\": 12
+}''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: False UserAgent: $'''Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.21) Gecko/20100312 Firefox/3.6''' Encoding: Web.Encoding.utf_8 AcceptUntrustedCertificates: False ResponseHeaders=> WebServiceResponseHeaders Response=> WebServiceResponse StatusCode=> StatusCode
+DateTime.GetCurrentDateTime.Current DateTimeFormat: DateTime.DateTimeFormat.DateAndTime Offset: $'''Asia/Tokyo''' CurrentDateTime=> CurrentDateTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyyMMdd''' Result=> FormattedDateTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''HH:00''' Result=> CheckTime
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyyMMddHH00''' Result=> FormattedDateTime2
+Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentDateTime CustomFormat: $'''yyyy-MM-ddTHH:00:00+09:00''' Result=> FormattedDateTime3
+WebAutomation.LaunchChrome.LaunchChrome Url: $'''http://www1.river.go.jp/cgi-bin/SrchSiteSuiData2.exe?SUIKEI=90331000&BGNDATE=%FormattedDateTime%&ENDDATE=%FormattedDateTime%&ID=301320190001010:0201;''' WindowState: WebAutomation.BrowserWindowState.Normal ClearCache: False ClearCookies: False Timeout: 60 BrowserInstance=> Browser
+WebAutomation.ExtractData.ExtractHtmlTable BrowserInstance: Browser Control: $'''html > body > center > table > tbody > tr:eq(2) > td > table > tbody > tr > td:eq(0) > table''' ExtractionParameters: {[$'''Value #1''', $'''Value #2''', $'''Value #3'''], [$'''''', $'''''', $''''''] } PostProcessData: False TimeoutInSeconds: 60 ExtractedData=> DataFromWebPage
+WebAutomation.CloseWebBrowser BrowserInstance: Browser
+LOOP FOREACH CurrentItem IN DataFromWebPage
+    SET Time TO CurrentItem[1]
+    IF Time = CheckTime THEN
+        SET waterLevel TO CurrentItem[2]
+        EXIT LOOP
+    END
+END
+Scripting.RunDOSCommand.RunDOSCommand DOSCommandOrApplication: $'''C:\\OOL\\PowerAutomate\\hukuti.bat''' WorkingDirectory: $'''C:\\Program Files\\nodejs''' StandardOutput=> CommandOutput StandardError=> CommandErrorOutput ExitCode=> CommandExitCode
+SET NewVar TO CommandOutput
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''type=''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''type''' StartingPosition: 102 IgnoreCase: False OccurrencePosition=> Position2
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position NumberOfChars: Position2 - Position - 1 Subtext=> Subtext
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''token.js''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position3
+Text.ParseText.ParseForFirstOccurrence Text: NewVar TextToFind: $'''GMT''' StartingPosition: Position3 IgnoreCase: False OccurrencePosition=> Position4
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position3 + 11 NumberOfChars: Position4 - Position3 - 8 Subtext=> Subtext2
+Text.GetSubtext.GetSubtext Text: NewVar CharacterPosition: Position2 NumberOfChars: NewVar.Length - Position2 - 1 Subtext=> Subtext3
+WAIT 2
+Scripting.RunPythonScript PythonCode: $'''import time
+
+dt = time.time()
+
+print(int(dt))''' ScriptOutput=> PythonScriptOutput ScriptError=> ScriptError
+Text.GetSubtext.GetSubtext Text: PythonScriptOutput CharacterPosition: 0 NumberOfChars: 10 Subtext=> Subtext4
+Web.InvokeWebService.InvokeWebService Url: $'''https://ool-dataops.documents.azure.com/dbs/OkinawaRiverDB/colls/hukuti/docs''' Method: Web.Method.Post Accept: $'''application/json''' ContentType: $'''application/json''' CustomHeaders: $'''Accept:
+x-ms-version:2018-12-31
+x-ms-date: %Subtext2%
+authorization:%Subtext%
+x-ms-documentdb-is-upsert: True
+x-ms-documentdb-partitionkey: [ \"hukutigawa\" ]''' RequestBody: $'''{
+    \"id\": \"hukuti0900\",
+    \"type\": \"river\",
+    \"observationPointName\": \"川田\",
+    \"riverName\": \"hukutigawa\",
+    \"address\": \"沖縄県国頭郡東村字川田上福地52\",
+    \"location\": {
+        \"type\": \"Point\",
+        \"coordinates\": [
+            26.3832,
+            128.1002
+        ]
+    },
+    \"phone\": \"0980-53-2442\",
+    \"rainfall\": null,
+    \"waterLevel\": 0.19,
+    \"basinArea\": 33
+}''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: False UserAgent: $'''Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.21) Gecko/20100312 Firefox/3.6''' Encoding: Web.Encoding.utf_8 AcceptUntrustedCertificates: False ResponseHeaders=> WebServiceResponseHeaders Response=> WebServiceResponse StatusCode=> StatusCode
